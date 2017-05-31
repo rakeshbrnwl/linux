@@ -1,0 +1,188 @@
+- lineinfile
+path: /etc/sudoers
+backup: yes
+regexp: '^root'
+line: 'test    ALL=(ALL:ALL) NOPASSWD: ALL'
+
+YAML:YAML aren't markup Language: simple listing of similar object under a group name. (--- : - )
+
+
+
+#yum install epel-release
+#yum update
+#yum install ansible git python python-devel python-pip
+
+#ansible --version
+
+#vi /etc/ansible/ansible.config
+inventory = /etc/ansible/hosts  #defined host file
+sudo_user  = root
+
+no daemon running for ansible...simply command works.
+
+#cd /etc/ansible ; ls  >> hosts # example
+#mv hosts hosts.orig
+#vi hosts
+[local]
+localhost
+
+[centos]
+centos01
+
+[ubunutu]
+ubuntu01
+
+On all server nmanaged clients.
+#adduser ansible
+#passwd ansible
+#visudo
+ansible ALL=(ALL)	NOPASSWD: ALL
+
+Setup SSH keygen...for passwordless for ansible user:
+server-ansible#ssh-keygen
+#ssh-copy-id ansible@ubuntu
+
+Ansible documentation  Ansible or ansible tower
+http://docs.ansible.com/
+https://thornelabs.net/2014/03/08/install-ansible-create-your-inventory-file-and-run-an-ansible-playbook-and-some-ansible-commands.html
+http://www.tricksofthetrades.net/trades/Programming/index.html
+
+
+Using single ansible ad-hoc command:
+
+#ansible all -m ping >> output in green (json output) 
+rc return code in output
+#ansible all -a "ls -la /home/ansible" # pass arbitrary command
+to run priviledge command (using sudo -s)
+#ansible all -s -a '"cat /var/log/message"
+#ansible centos -s -a '"cat /var/log/message"
+#ansible centos -m copy -a "src=/ansible/test.txt dest=/tmp/test.txt"
+#ansible ubuntu -s -m apt -a "name=elinks stat=latest"  >> if fails go through logs,might be issue with permissions.
+#ansible centos -s -m user -a "name=test"
+
+Playbook Structure with YAML:YAML is a simple markup language
+Indentation is important (sysntax)
+#cd /ansible/playbooks/
+#vi structure.yaml
+--- # This is structure YAML example to install httpd on centos
+- hosts: centos
+  remote_user: ansible
+  become:yes
+  become_method: sudo
+  connection: ssh
+  gather_facts: yes
+  vars_files: 
+   - var.yaml
+  vars:
+    username: myuser
+  tasks:
+   - name: install Httpd server on centos
+     yum:
+       name: httpd
+       state:latest
+     notify:
+       - startservice
+   handlers:
+   - name: startservice
+     service:
+       name: httpd
+       state: restarted 
+
+ #ansible-playbook structure.yaml
+
+Lecture: Gathering Facts
+#ansible all --list-hosts
+#ansible centos01 -m setup  ; performs gathering facts
+#ansible centos01 -m setup | grep ipv4 (no proper output)
+#ansible centos01 -m setup -a 'filter=*ipv4*'
+#ansible centos01 -m setup --tree facts >>to save in facts directory
+#ansible centos01 -m setup -a 'filter=ansible_domain'
+
+Lecture: Variable Substitution
+cat /etc/ansible/hosts
+cd /etc/ansible
+vi variable.yaml
+--- # testing how variable works
+- hosts: '{{ myhosts }}'
+  remote_user: ansible
+  become_method: sudo
+  connection: ssh
+  gather_facts: '{{ gather }}'
+  vars:
+    myhosts: centos
+    gather: yes
+    pkg: telnet
+  tasks:
+   - name: install the indicated software
+     yum: 
+      name: '{{ pkg }}'
+      state: latest
+
+ansible-playbook vartest.yaml -l <hostname>
+
+Lecture: Debug Statement
+cd /etc/ansible/playbooks
+vi debug.yaml
+--- # Playbook demo of debug n register statement
+- hosts: centos
+  remote_user: ansible
+  become:yes
+  become_method: sudo
+  connection: ssh
+  gather_facts: no
+  tasks:
+   - name: installing telnet package
+      yum
+       - name: telnet
+         state: latest
+      register: result  >> show background result of ansible playbook 
+     - debug:  var=result
+ 
+Lecture: Notifications and Handlers
+---
+- hosts: local
+  vars:
+   - docroot: /var/www/serversforhackers.com/public
+  tasks:
+   - name: Add Nginx Repository
+     apt_repository: repo='ppa:nginx/stable' state=present
+     register: ppastable
+
+   - name: Install Nginx
+     apt: pkg=nginx state=installed update_cache=true
+  #   when: ppastable|success
+  #   register: nginxinstalled   { - name : enabl en start nginx.,service: nginx,enabled: yes,state : restrted}
+     notify:
+      - Start Nginx
+
+   - name: Create Web Root
+     when: nginxinstalled|success
+     file: dest={{ '{{' }} docroot {{ '}}' }} mode=775 state=directory owner=www-data group=www-data
+     notify:
+      - Reload Nginx
+
+  handlers:
+   - name: Start Nginx
+     service: name=nginx state=started
+
+    - name: Reload Nginx
+      service: name=nginx state=reloaded
+
+https://www.digitalocean.com/community/tutorials
+https://linuxcontainers.org/lxd/getting-started-cli/
+
+1.yum install gcc glibc glibc-common gd gd-devel make net-snmp openssl-devel xinetd unzip
+2.sudo useradd nagios
+sudo groupadd nagcmd
+sudo usermod -a -G nagcmd nagios
+3.cd ~
+curl -L -O https://assets.nagios.com/downloads/nagioscore/releases/nagios-4.1.1.tar.gz
+4.tar xvf nagios-*.tar.gz
+5.cd nagios-*
+6../configure --with-command-group=nagcmd
+7.sudo make install
+sudo make install-commandmode
+sudo make install-init
+sudo make install-config
+sudo make install-webconf
+
